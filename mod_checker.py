@@ -53,17 +53,23 @@ class SteamModChecker:
                 if date_elements:
                     date_text = date_elements[-1].text.strip()
                     
-                    # Handle dates without year (current year)
-                    if '@' in date_text and not re.search(r'\d{4}', date_text):
-                        date_text = f"{date_text} {datetime.now().year}"
+                    # Remove commas and @ symbols for simpler parsing
+                    date_text = date_text.replace(',', '').replace('@', '').strip()
                     
-                    # Remove commas for simpler parsing
-                    date_text = date_text.replace(',', '')
+                    # Check if year is missing (no 4-digit number)
+                    if not re.search(r'\b\d{4}\b', date_text):
+                        # Add current year between month and time
+                        parts = date_text.split()
+                        if len(parts) >= 3:  # Should be like: ["27", "May", "12:05pm"]
+                            # Insert year between month and time
+                            date_text = f"{parts[0]} {parts[1]} {datetime.now().year} {parts[2]}"
                     
                     # Try parsing with common formats
                     date_formats = [
-                        '%d %b %Y @ %I:%M%p',
-                        '%d %B %Y @ %I:%M%p',
+                        '%d %b %Y %I:%M%p',      # 16 Oct 2020 4:08pm
+                        '%d %B %Y %I:%M%p',      # 16 October 2020 4:08pm
+                        '%d %b %Y',              # Fallback: date only with year
+                        '%d %B %Y',              # Fallback: date only with full month
                     ]
                     
                     for fmt in date_formats:
@@ -71,7 +77,6 @@ class SteamModChecker:
                             return datetime.strptime(date_text, fmt)
                         except ValueError:
                             continue
-                
         except Exception as e:
             print(f"Error getting Steam date for {mod_url}: {e}")
         
@@ -100,9 +105,17 @@ class SteamModChecker:
                         date_text = date_elem.text.strip()
                         date_text = date_text.replace(',', '').replace(' UTC', '')
                         
-                        # Handle dates without year
-                        if 'at' in date_text and not re.search(r'\d{4}', date_text):
-                            date_text = f"{date_text} {datetime.now().year}"
+                        # Handle dates without year by inserting current year between month and "at"
+                        if 'at' in date_text:
+                            # Check if the date already has a 4-digit year
+                            if not re.search(r'\b\d{4}\b', date_text):
+                                # Insert current year between month and "at"
+                                parts = date_text.split(' at ')
+                                if len(parts) == 2:
+                                    date_part = parts[0].strip()
+                                    time_part = parts[1].strip()
+                                    # Insert current year
+                                    date_text = f"{date_part} {datetime.now().year} at {time_part}"
                         
                         date_formats = [
                             '%d %b %Y at %H:%M',
